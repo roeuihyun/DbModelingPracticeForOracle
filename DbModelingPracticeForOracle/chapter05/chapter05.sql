@@ -151,3 +151,18 @@ LOGGING
 NOCACHE
 MONITORING
 NOPARALLEL;
+
+--[PAGE120][테이블에 지정된 제약 조건 확인]
+SELECT COLUMN_NAME
+       ,DECODE(B.CONSTRAINT_TYPE,'P','PRIMARY KEY'
+                                ,'U','UNIQUE KEY'
+                                ,'C','CHECK OR NOT NULL'
+                                ,'R','FOREIGN KEY') AS CONSTRAINT_TYPE
+       ,A.CONSTRAINT_NAME
+       ,B.CONSTRAINT_NAME
+FROM USER_CONS_COLUMNS A
+     ,USER_CONSTRAINTS B
+WHERE A.TABLE_NAME = B.TABLE_NAME
+AND A.CONSTRAINT_NAME = B.CONSTRAINT_NAME;
+
+-- 전체적으로 vo, 마이플랫폼, egov를 사용하여 CRUD를 작성함
