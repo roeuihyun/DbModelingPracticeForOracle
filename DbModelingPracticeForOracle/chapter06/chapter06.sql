@@ -1,0 +1,243 @@
+--[PAGE166][테이블 별 ROWID 조회]
+SELECT ROWID
+       ,T1.*
+FROM INSA T1;
+
+--[PAGE166][ROWID를 이용한 DML 실행 예제]
+
+--상품마스터 상품 코드 보정작업
+UPDATE PRODUCT_MAST A
+SET A.CP_CD = 'ZZZZZ'
+WHERE ROWID IN (
+                SELECT A.ROWID
+                FROM PRODUCT_MAST A
+                     ,CONT_PROVIDER B
+                WHERE A.CP_CD = B.CP_CD(+)
+                AND A.CP_GB = B.CP_GB(+)
+                AND B.CP_CD = NULL);
+
+--상품 마스터 출판사 보정 작업
+UPDATE PRODUCT_MAST A
+SET A.CP_CD1 = 'ZZZZZ'
+WHERE ROWID IN (
+                SELECT A.ROWID
+                FROM PRODUCT_MAST A
+                     ,CONT_PROVIDER B
+                WHERE A.CP_CD1 = B.CP_CD(+)
+                AND A.CP_GB1 = B.CP_GB(+)
+                AND B.CP_CD = NULL);
+
+--비교값 중의 중복값을 제거한다.
+DELETE
+FROM RGTMGD
+WHERE ROWID IN(
+               SELECT A.ROWID
+               FROM RGTMGD A
+                    ,RGTMGD B
+               WHERE A.TEAM_CDOE||A.WRK_CAT||A.REG_NO||SUBSTR(A.MBD_REG_NO,1,7)||'******'
+               = B.TEAM_CDOE||B.WRK_CAT||B.REG_NO||SUBSTR(B.MBD_REG_NO,1,7)||'******'
+               AND A.ROWID < B.ROWID
+               );
+               
+--[PAGE168][ROWNUM의 조회]
+SELECT ROWNUM
+       ,SABUN
+       ,NAME
+       ,ENG_NAME
+       ,JOIN_GBN_CODE
+FROM INSA T1;
+
+--[PAGE168][ROWNUM과 SORT]
+SELECT ROWNUM
+       ,SABUN
+       ,NAME
+       ,ENG_NAME
+       ,JOIN_GBN_CODE
+FROM INSA T1
+ORDER BY NAME;
+
+--[PAGE169][ROWNUM의 사용]
+SELECT ROWNUM
+       ,SABUN
+       ,NAME
+       ,ENG_NAME
+       ,JOIN_GBN_CODE
+FROM INSA T1
+WHERE ROWNUM = 1;
+
+--[PAGE169][ROWNUM의 잘못된 예]
+SELECT ROWNUM
+       ,SABUN
+       ,NAME
+       ,ENG_NAME
+       ,JOIN_GBN_CODE
+FROM INSA T1
+WHERE ROWNUM > 2;
+-- ROWNUM은 추출되는 대상을 가지고 +1씩 증가하는 PSEUDO컬럼이므로 아직 추출하지 못한 값이여서
+-- 논리적으로 추출하지 못하는 것이다.
+
+--[PAGE170][ROWNUM의 잘못된 예]
+SELECT ROWNUM
+       ,SABUN
+       ,NAME
+       ,ENG_NAME
+       ,JOIN_GBN_CODE
+FROM INSA T1
+WHERE ROWNUM > 1
+AND ROWNUM < 100;
+
+--[PAGE170][ROWNUM의 올바른 예]
+SELECT ROWNUM
+       ,SABUN
+       ,NAME
+       ,ENG_NAME
+       ,JOIN_GBN_CODE
+FROM INSA T1
+WHERE ROWNUM >= 1
+AND ROWNUM < 100;
+
+-- ROWNUM을 사용할 때는 조회 시 1부터 조회되므로 항상 1이 포함되어 있어야 비교할 수 있다는 특성을 잘 알자
+
+--[PAGE171][UNION의 컬럼 유형]
+SELECT 20090101 AS SABUN
+       ,'이호상' AS NAME
+FROM DUAL
+UNION
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL;
+
+--[PAGE171][UNION의 컬럼 개수]
+SELECT '20090101' AS SABUN
+       ,'이호상' AS NAME
+       ,'LEE HO SANG' AS ENG_NAME
+FROM DUAL
+UNION
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL;
+
+--UNION 이나 UNION ALL은 대응되는 집합의 컬럼 유형과 컬럼의 개수가 같아야 에러를 발생 시키지 않는다.
+
+--[PAGE172][UNION의 사용]
+SELECT '20090101' AS SABUN
+       ,'이호상' AS NAME
+FROM DUAL
+UNION
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL;
+
+--[PAGE172][UNION의 특성]
+SELECT '20090101' AS SABUN
+       ,'이호상' AS NAME
+FROM DUAL
+UNION
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL
+UNION
+SELECT '20090102' AS SABUN
+       ,'김길동' AS NAME
+FROM DUAL
+UNION
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL
+UNION
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL;
+
+--[PAGE173][UNION ALL의 특성]
+SELECT '20090101' AS SABUN
+       ,'이호상' AS NAME
+FROM DUAL
+UNION ALL
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL
+UNION ALL
+SELECT '20090102' AS SABUN
+       ,'김길동' AS NAME
+FROM DUAL
+UNION ALL
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL
+UNION ALL
+SELECT '20090102' AS SABUN
+       ,'홍길동' AS NAME
+FROM DUAL;
+
+--[PAGE175][GROUP BY의 사용]
+SELECT JOIN_GBN_CODE
+       ,COUNT(SABUN)
+       ,MAX(NAME)
+       ,MIN(ENG_NAME)
+       ,COUNT(ENG_NAME)
+       ,ROUND(AVG(SALARY))
+FROM INSA
+GROUP BY JOIN_GBN_CODE;
+
+--[PAGE175][GROUP BY의 사용]
+SELECT JOIN_GBN_CODE
+       ,COUNT(SABUN)
+       ,MAX(NAME)
+       ,MIN(ENG_NAME)
+       ,COUNT(ENG_NAME)
+       ,ROUND(AVG(SALARY))
+FROM INSA
+GROUP BY JOIN_GBN_CODE
+HAVING ROUND(AVG(SALARY)) < 2700;
+
+--[PAGE176][<예제> GROUP BY를 사용하여 합계를 산출하라.]
+--[예제 풀이 SQL 과정_1]
+SELECT NO
+       ,JOIN_GBN_CODE
+       ,COUNT(SABUN)
+       ,MAX(NAME)
+       ,MIN(ENG_NAME)
+       ,COUNT(ENG_NAME)
+       ,ROUND(AVG(SALARY))
+FROM INSA
+     ,(SELECT 1 AS NO FROM DUAL UNION
+       SELECT 2 AS NO FROM DUAL)
+GROUP BY NO, JOIN_GBN_CODE;       
+
+--[예제 풀이 SQL 과정_2]
+SELECT DECODE(NO,1,JOIN_GBN_CODE,'합계')
+       ,COUNT(SABUN)
+       ,MAX(NAME)
+       ,MIN(ENG_NAME)
+       ,COUNT(ENG_NAME)
+       ,ROUND(AVG(SALARY))
+FROM INSA
+     ,(SELECT 1 AS NO FROM DUAL UNION
+       SELECT 2 AS NO FROM DUAL)
+GROUP BY DECODE(NO,1,JOIN_GBN_CODE,'합계')
+ORDER BY DECODE(NO,1,JOIN_GBN_CODE,'합계');
+
+--[PAGE177][GROUP BY와 SORTING]
+SELECT DECODE(NO,1,JOIN_GBN_CODE,'합계')
+       ,COUNT(SABUN)
+       ,MAX(NAME)
+       ,MIN(ENG_NAME)
+       ,COUNT(ENG_NAME)
+       ,ROUND(AVG(SALARY))
+FROM INSA
+     ,(SELECT 1 AS NO FROM DUAL UNION
+       SELECT 2 AS NO FROM DUAL)
+GROUP BY DECODE(NO,1,JOIN_GBN_CODE,'합계');
+
+SELECT DECODE(NO,1,JOIN_GBN_CODE,'합계')
+       ,COUNT(SABUN)
+       ,MAX(NAME)
+       ,MIN(ENG_NAME)
+       ,COUNT(ENG_NAME)
+       ,ROUND(AVG(SALARY))
+FROM INSA
+     ,(SELECT 1 AS NO FROM DUAL UNION
+       SELECT 2 AS NO FROM DUAL)
+GROUP BY DECODE(NO,1,JOIN_GBN_CODE,'합계')
+ORDER BY DECODE(NO,1,JOIN_GBN_CODE,'합계');
