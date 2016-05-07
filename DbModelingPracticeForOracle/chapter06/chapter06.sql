@@ -775,3 +775,51 @@ WHERE ROWID IN(
                     ,PRODUCT_MAST_NEW B
                WHERE A.BARCODE = B.BARCODE(+)
                AND B.BARCODE IS NULL);
+               
+--[PAGE219][EXISTS를 이용한 다중 UPDATE 쿼리]
+UPDATE KFA2003.IFD_GOODS_INGR AA
+SET AA. INGR_CODE = (SELECT INGR_CODE_NEW
+                     FROM INGR_CODE_2009CONV BB
+                     WHERE BB.USE_YN = '2' --삭제
+                     AND AA.INGR_CODE =BB.INGR_CODE_OLD)
+WHERE EXISTS (SELECT 1
+              FROM INGR_CODE_2009CONV BB
+              WHERE BB.USE_YN = '2' --삭제
+              AND AA.INGR_CODE =BB.INGR_CODE_OLD);
+
+--[PAGE220][<예제> 데이터 조회 화면 중 사번 '20090102'의 정보를 삭제하시오.]
+--[기본 DELETE 쿼리와 데이터 조회]
+DELETE TABLE_1
+WHERE SABUN = '20090102';
+
+--[PAGE221][ROWID를 다중건의 DELETE]
+DELETE FROM TNRGTMGD
+WHERE ROWID IN (SELECT A.ROWID
+                FROM TNRGTMGD A, TNRGTMGD B
+                WHERE A.SF_TEAM_CODE 
+                || A.WRK_CAT
+                || A.MG_REG_NO
+                || SUBSTR(A.RGT_MBD_REG_NO,1,7)
+                || '******'
+                = B.SF_TEAM_CODE 
+                || B.WRK_CAT
+                || B.MG_REG_NO
+                || SUBSTR(B.RGT_MBD_REG_NO,1,7)
+                || '******'
+                AND A.ROWID < B.ROWID);
+
+--[PAGE232][MERGE 함수를 이용한 데이터 처리 예_1]
+MERGE INTO BONUSES D
+USING (SELECT EMPLOYEE_ID
+              ,SALARY
+              ,DEPARTMENT_ID
+       FROM EMPLOYEES
+       WHERE DEPARTMENT_ID = 80 ) S -- 정보 제공 집합
+ON (D.EMPLOYEE_ID = S.EMPLOYEE_ID) -- 연결 고리
+WHEN MATCHED THEN 
+    UPDATE SET 
+    D.BONUS = D.BONUS + S.SALARY * 0.1 --존재시 처리
+    WHERE (S.SALARY > 8000)
+WHEN NOT MATCHED THEN
+    INSERT (D.EMPLOYEE_ID, D.BONUS) --부재시 처리
+    VALUES (S.EMPLOYEE_ID, S.SALARY * 0.1);
