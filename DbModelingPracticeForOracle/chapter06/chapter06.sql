@@ -823,3 +823,160 @@ WHEN MATCHED THEN
 WHEN NOT MATCHED THEN
     INSERT (D.EMPLOYEE_ID, D.BONUS) --부재시 처리
     VALUES (S.EMPLOYEE_ID, S.SALARY * 0.1);
+    
+--[PAGE232][MERGE 함수를 이용한 데이터 처리 예_2]
+MERGE INTO POR_VOC_LOG_INFO D
+USING (SELECT :IN_LOG_YMD, :IN_LOG_EMP_NO LOG_EMP_NO
+       FROM DUAL) S
+ON (D.LOG_YMD = S.LOG_YMD
+    AND D.LOG_EMP_NO = S.LOG_EMP_NO)
+WHEN MATCHED THEN
+UPDATE SET D.LOG_CNT = D.LOG_CNT + 1
+WHEN NOT MATCHED THEN
+INSERT (D.LOG_YMD,D.LOG_EMP_NO,D.LOG_CNT)
+VALUES (:IN_LOG_YMD, :IN_LOG_EMP_NO, 1);
+
+--[PAGE234][분석 함수의 사용 예]
+SELECT SABUN
+       ,ENG_NAME
+       ,JOIN_GBN_CODE
+       ,COUNT(SABUN) OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SABUN) AS COUNT_MEM
+FROM INSA;
+
+--[PAGE236][<예제> 정직원 중 연봉이 높은 순서대로 순위를 부여하여 출력하시오.]
+SELECT ROWNUM
+       ,T1.*
+FROM (SELECT SABUN
+             ,ENG_NAME
+             ,SALARY
+             ,JOIN_GBN_CODE
+             ,RANK() OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SALARY DESC) AS RANK
+             ,DENSE_RANK() OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SALARY DESC) AS DENSE_RANK
+             ,ROW_NUMBER() OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SALARY DESC) AS ROW_NUMBER
+      FROM INSA       
+      ) T1
+WHERE JOIN_GBN_CODE = 'RGL'
+AND ROWNUM <= 10;
+
+--[PAGE237][<예제> 2013년에 입사한 정직원 중 최근에 입사한 5명을 순서대로 조회하시오.]
+--[TOP-N 분석 함수의 사용 예 방법 1]
+SELECT T1.*
+       ,ROWNUM
+FROM (SELECT SABUN
+             ,ENG_NAME
+             ,NVL(JOIN_DAY,SUBSTR(SABUN,1,8)) AS JOIN_DAY
+             ,JOIN_GBN_CODE
+      FROM INSA
+      WHERE SUBSTR(NVL(JOIN_DAY,SUBSTR(SABUN,1,8)),1,4) = '2013'
+      ORDER BY SABUN DESC
+      ) T1
+WHERE JOIN_GBN_CODE = 'RGL'
+AND ROWNUM <= 5;
+
+--[TOP-N 분석 함수의 사용 예 방법 2]
+SELECT T1.*
+FROM (SELECT SABUN
+             ,ENG_NAME
+             ,NVL(JOIN_DAY,SUBSTR(SABUN,1,8)) AS JOIN_DAY
+             ,JOIN_GBN_CODE
+             ,ROW_NUMBER() OVER(PARTITION BY JOIN_GBN_CODE ORDER BY JOIN_DAY DESC) AS "순위"
+      FROM INSA
+      WHERE SUBSTR(NVL(JOIN_DAY,SUBSTR(SABUN,1,8)),1,4) = '2013'
+      ) T1
+WHERE JOIN_GBN_CODE = 'RGL'
+AND ROWNUM <= 5
+ORDER BY "순위" ASC;
+
+--[PAGE239][INDEX 사용으로 RANK 조회]
+SELECT ROWNUM
+       ,T1.*
+FROM (SELECT /*+ INDEX_DESC(INSA INSA_PK)*/
+            SABUN
+            ,ENG_NAME
+            ,NVL(JOIN_DAY,SUBSTR(SABUN,1,8)) AS JOIN_DAY
+            ,JOIN_GBN_CODE
+      FROM INSA
+      WHERE SUBSTR(NVL(JOIN_DAY,SUBSTR(SABUN,1,8)),1,4) = '2013'
+      ) T1
+WHERE JOIN_GBN_CODE = 'RGL'
+AND ROWNUM <= 5;
+
+--[PAGE240][<예제> 프리랜서로 등록된 모든 사원을 급여 기준으로 6등급으로 분류하여 조회하시오.]
+SELECT SABUN
+       ,ENG_NAME
+       ,SALARY
+       ,JOIN_GBN_CODE
+       ,NTILE(6) OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SALARY DESC) AS NTILE
+FROM INSA
+WHERE JOIN_GBN_CODE = 'FRE';
+
+--[PAGE241][NTILE 함수의 나머지 값 처리]
+SELECT SABUN
+       ,ENG_NAME
+       ,SALARY
+       ,JOIN_GBN_CODE
+       ,NTILE(7) OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SALARY DESC) AS NTILE
+FROM INSA
+WHERE JOIN_GBN_CODE = 'FRE';
+
+-- NTILE 함수는 전체 건수를 조건값으로 받아 어느 한 집단의 데이터를 조회하거나
+-- 등급 구분을 하기 위해 사용하기 유용한 함수이다.
+
+--[PAGE242][<예제> 2013년에 입사한 정직원 중 급여그룹을 7개의 그룹으로 구분하고 그 중 급여를 가장 많이 받는 첫 번째 그룹을 조회하시오.]
+--[NTILE 분석 함수 사용 예제_2]
+SELECT *
+FROM  (SELECT SABUN
+              ,ENG_NAME
+              ,SALARY
+              ,JOIN_GBN_CODE
+              ,NTILE(7) OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SALARY DESC) AS SAL_G
+       FROM INSA
+       WHERE SUBSTR(NVL(JOIN_DAY,SUBSTR(SABUN,1,8)),1,4) = '2013'
+       )
+WHERE JOIN_GBN_CODE = 'RGL'
+AND SAL_G = '1';
+
+--CUME_DIST 함수는 그룹값 내에서 기준되는 값의 누적분포를 계산하는 함수이다.
+--[PAGE243][<예제> 입사 구분 코드의 각 형태별 연봉 순위를 조회하고 3명씩 추출하여 누적분포를 구하시오.]
+--[SALARY의 데이터값으로 누적 분포를 추출]
+SELECT *
+FROM (SELECT SABUN
+             ,ENG_NAME
+             ,SALARY
+             ,JOIN_GBN_CODE
+             ,ROW_NUMBER() OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SALARY DESC) AS ROW_NUMBER
+             ,ROUND(CUME_DIST() OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SALARY),3) AS CUME_DIST
+      FROM INSA
+      ORDER BY JOIN_GBN_CODE DESC)
+WHERE ROW_NUMBER <= 3;
+
+--[PAGE245][<예제> 근속 년수가 3년 이상인 직원을 조회하는데 이전 사원의 급여와 합쳐진 금액을 같이 출력하시오.]
+--[윈도우 분석 함수 적용 예]
+SELECT SABUN
+       ,ENG_NAME
+       ,SALARY
+       ,JOIN_DAY
+       ,JOIN_GBN_CODE
+       ,SUM(SALARY) OVER(PARTITION BY JOIN_GBN_CODE ORDER BY SABUN ROWS 1 PRECEDING) AS TOTAL_SAL
+FROM INSA
+WHERE JOIN_DAY < TO_CHAR(ADD_MONTHS(SYSDATE,-36),'YYYYMMDD');
+
+--[PAGE247][<예제> 직원 형태 구분 중 정직원을 조회하는데 월별로 입사 일자가 가장 빠른 사원을 포함하여 조회하시오.]
+--[FIRST_VALUE]
+SELECT SABUN
+       ,ENG_NAME
+       ,NVL(JOIN_DAY,SUBSTR(SABUN,1,8)) AS JOIN_DAY
+       ,SALARY
+       ,FIRST_VALUE(ENG_NAME) OVER(PARTITION BY SUBSTR(JOIN_DAY,1,6) ORDER BY SABUN) AS START_DAY
+FROM INSA
+WHERE JOIN_GBN_CODE = 'RGL';
+
+--[PAGE248][<예제> 직원 형태 구분 중 정직원의 정보를 조회하고 월별로 입사 일자가 가장 느린 사원을 포함하여 조회하시오.]
+--[LAST_VALUE]
+SELECT SABUN
+       ,ENG_NAME
+       ,NVL(JOIN_DAY,SUBSTR(SABUN,1,8)) AS JOIN_DAY
+       ,SALARY
+       ,LAST_VALUE(ENG_NAME) OVER(PARTITION BY SUBSTR(JOIN_DAY,1,6) ORDER BY SABUN) AS FINAL_DAY
+FROM INSA
+WHERE JOIN_GBN_CODE = 'RGL';
