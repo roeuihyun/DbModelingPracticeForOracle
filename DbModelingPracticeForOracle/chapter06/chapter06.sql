@@ -1083,4 +1083,30 @@ WHERE I.CMP_REG_NO = C.CMP_REG_NO
 AND I.SABUN = '2012010101'
 AND C.CMP_REG_NO = '2222222206';
 
+--[ORDERED HINT 사용]
+SELECT /*+ ORDERED */
+       I.SABUN
+       ,I.ENG_NAME
+       ,I.JOIN_GBN_CODE
+       ,C.CMP_NAME
+FROM INSA I, INSA_COMPANY C
+WHERE I.CMP_REG_NO = C.CMP_REG_NO
+AND C.CMP_REG_NO = '2222222206'
+AND I.SABUN = '2012010101';
 
+--3.3.3 Optimization Goals and Approaches
+-- /*+ ALL_ROWS */ 전체 리소스 소비를 최소화 시키기 위한 힌트, 전체 응답 시간이 가장 적은 Plan을 선택
+-- /*+ FIRST_ROWS */ WHERE 조건을 만족하는 첫 번째 행을 가장 빠르게 검색하는 실행 계획을 결정
+-- /*+ CHOOSE */ Acess되는 테이블에 통계정보의 존재 여부에 따라 옵티마이저로 하여금 Rule-Based Approach 와 Cost-Based Approach 중 하나를 선택할 수 있게 한다.
+-- Data Dictionary가 해당 테이블에 대해 통계 정보를 가지고 있다면 Optimizer는 Cost-Based Approach를 선택하고, 그렇지 않다면 Rule-Based Approach를 선택한다.
+-- /*+ RULE */ Rule-Based Optimization으로 Plan 작성, 옵티마이저에게 RuleBase 방법으로 쿼리를 수행 하라는 지시
+
+--[/*+ ALL_ROWS */ 힌트 사용]
+SELECT /*+ ALL_ROWS */
+       SABUN
+       ,ENG_NAME
+       ,JOIN_GBN_CODE
+       ,SALARY
+FROM INSA
+WHERE SABUN LIKE '2013%'
+AND JOIN_GBN_CODE = 'RGL';
