@@ -196,3 +196,108 @@ SELECT SABUN
        ,JOIN_DAY
 FROM INSA
 ORDER BY SABUN DESC; 
+
+--<예제>사번을 입력 받아 직원의 이름과 직급 그리고 입사일로부터 근무한 월 수를 확인하시오
+--[PAGE280][OUT 변수를 이용하는 프로시저 생성]
+CREATE OR REPLACE PROCEDURE workPm
+(V_SABUN IN INSA.SABUN%TYPE,
+V_NAME OUT INSA.ENG_NAME %TYPE,
+V_CDNAME OUT CMM_CODE_DETAIL.CODE_NAME%TYPE,
+V_M OUT INSA.JOIN_DAY%TYPE)
+IS
+BEGIN
+
+SELECT T1.ENG_NAME
+       ,T2.CODE_NAME
+       ,ROUND(MONTHS_BETWEEN(SYSDATE,TO_DATE(JOIN_DAY,'YYYYMMDD'))) AS MON_WORK
+INTO V_NAME, V_CDNAME, V_M
+FROM INSA T1, CMM_CODE_DETAIL T2
+WHERE T1.POS_GBN_CODE = T2.CODE_NO
+AND T1.SABUN = V_SABUN;
+
+DBMS_OUTPUT.PUT_LINE(V_NAME||'--'||V_CDNAME||'--'||V_M);
+
+EXCEPTION WHEN OTHERS THEN
+  DBMS_OUTPUT.PUT_LINE('조회하려는 사번이 존재하지 않음!');
+
+END workPm;
+
+--[PAGE281][익명 블록 PL/SQL 생성]
+DECLARE
+V_NAME INSA.ENG_NAME%TYPE;
+V_CDNAME CMM_CODE_DETAIL.CODE_NAME%TYPE;
+V_M INSA.JOIN_DAY%TYPE;
+BEGIN
+
+workPm('2012010119',V_NAME, V_CDNAME, V_M);
+DBMS_OUTPUT.PUT_LINE('이름: '||V_NAME||' 직급: '||V_CDNAME||' 근무월수: '||V_M||' 개월');
+
+END;
+
+--[PAGE282][프로시저 확인]
+SELECT *
+FROM USER_PROCEDURES;
+
+--[PAGE282][생성된 PL/SQL 객체 내용 조회]
+SELECT *
+FROM USER_SOURCE;
+
+--[PAGE283][프로시저 삭제]
+DROP PROCEDURE 프로시저명;
+
+
+--3. 트리거(TRIGGER)
+--3.1. 트리거 일반
+--3.1.1. 트리거 사용목적
+--데이터베이스 테이블 생성하는 과정에서 참조 무결성과 데이터 무결성 등의 복잡한 제약 조건을 생성하는 경우
+--데이터베이스 테이블의 데이터에 생기는 작업의 감시, 보완
+--데이터베이스 테이블에 생기는 변화에 따라 다른 프로그램을 실행하는 경우
+--불필요한 트랜잭션을 금지하기 위해
+--컬럼의 값을 자동으로 생성되도록 하는 경우
+--복잡한 뷰를 생성하는 경우
+
+--[PAGE291][트리거의 기본 형식]
+CREATE TRIGGER 트리거명
+BEFORE | AFTER INSTERT | DELETE | UPDATE (OF 컬럼...N)
+ON 테이블명
+FOR EACH ROW
+WHEN :OLD OR :NEW.COLUMN..
+BEGIN
+  트리거의 내용
+END;
+
+--3.1.2. 트리거 사용 예제
+--[PAGE292][트리거 생성 예]
+CREATE OR REPLACE TRIGGER CHK_TRIG
+BEFORE UPDATE
+ON INSA
+BEGIN
+DBMS_OUTPUT.PUT_LINE('요청하신 작업이 처리 되었습니다.');
+END;
+
+--[PAGE292][트리거 실행 예]
+UPDATE INSA SET SALARY = 2800 WHERE SABUN = '20130111103';
+
+--[PAGE293][UPDATE 이벤트 결과 확인]
+SELECT SABUN
+       ,SALARY
+FROM INSA
+WHERE SABUN = '2013011103';
+
+--[PAGE293][CHK_ROW 백업 테이블 생성]
+CREATE TABLE CHK_ROW(
+SEQ_NO NUMBER,          -- 백업 순번
+TIME_IN DATE,           -- 백업 시간
+SABUN VARCHAR2(10),     -- 백업 대상 사번
+ENG_NAME VARCHAR2(20),  -- 백업 대상 이름
+COL_NAME VARCHAR2(10),  -- 변경된 항목
+O_DATA VARCHAR2(10),    -- 변경 전 데이터
+N_DATA VARCHAR2(10)     -- 변경 후 데이터
+);
+
+--[PAGE294][CHK_ROW_UDP 트리거 생성]
+CREATE OR REPLACE TRIGGER CHK_ROW_UDP
+BEFORE UPDATE OF SALARY
+ON INSA
+FOR EACH ROW
+BEGIN
