@@ -390,3 +390,227 @@ END;
 CREATE OR REPLACE FUNCTION LEEOK.GET_CMM_CODE_NAME(
 V_CLASS_CODE IN CMM_CODE_DETAIL.CLASS_CODE%TYPE,
 V_CODE_NO IN CMM_CODE_DETAIL.CODE_NO%TYPE)
+RETURN VARCHAR2
+IS
+V_CMM_CODE_NAME CMM_CODE_DETAIL.CODE_NAME%TYPE
+
+BEGIN
+
+SELECT CODE_NAME
+INTO V_CMM_CODE_NAME
+FROM CMM_CODE_DETAIL
+WHERE CODE_NO = V_CODE_NO
+AND CLASS_CODE = V_CLASS_CODE;
+
+RETURN V_CMM_CODE_NAME;
+EXCEPTION
+      WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('입력한 코드는 없습니다.');
+        RETURN V_CMM_CODE_NAME; 
+      WHEN TOO_MANY_ROWS THEN
+        DBMS_OUTPUT.PUT_LINE('자료가 두건 이상입니다.');
+      WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('기타 에러입니다.');
+END;
+
+--[PAGE303][FUNCTION 사용 예제]
+SELECT GET_CMM_CODE_NAME('H01','A06') AS 응시결과
+FROM DUAL;
+
+--[PAGE304][EXCEPTION 처리]
+SELECT GET_CMM_CODE_NAME('H01','A09') AS 응시결과
+FROM DUAL;
+
+--<예제> 직원 구분 코드를 입력 받아 해당하는 그룹별 남,녀 인원수와 총합을 조회하는 함수를 만드시오.
+--[PAGE304][FUNCTION 사용의 예]
+CREATE OR REPLACE FUNCTION SAWON_COUNT
+(V_GBN_CODE INSA.JOIN_GBN_CODE%TYPE)
+RETURN VARCHAR2
+IS
+
+V_M NUMBER;
+V_F NUMBER;
+V_T NUMBER;
+V_ALL VARCHAR2(30);
+
+BEGIN
+
+V_M := 0;
+V_F := 0;
+V_T := 0;
+
+SELECT COUNT(DECODE(SEX,'M',1)) AS MEN
+       ,COUNT(DECODE(SEX,'F',1)) AS WOMEN
+       ,COUNT(SEX) AS TOT
+INTO V_M, V_F, V_T
+FROM INSA
+WHERE JOIN_GBN_CODE = V_GBN_CODE;
+DBMS_OUTPUT.PUT_LINE('남:'||V_M||' 여:'||V_F||' 토탈:'||V_T);
+V_ALL :='남:'||V_M||' 여:'||V_F||' 토탈:'||V_T;
+DBMS_OUTPUT.PUT_LINE('V_ALL에 담겨져 잇는 값은 : ' || V_ALL);
+RETURN V_ALL;
+END;
+
+--[PAGE306][SAWON COUNT 함수 실행]
+SELECT SAWON_COUNT('RGL') AS 인원구성
+FROM DUAL;
+
+--4.1.1. 사용자 정의 함수 사용시 주의사항
+--복잡한 계산식이나 어려운 로직을 포함하는 경우 함수로 정의하여 사용
+--사용자 정의 함수에서 대량의 데이터를 조회하여 결과값을 리턴하는 방법은 사용하지 말자
+--오라클 내장 함수와 사용자 정의 함수는 속도의 차이가 많이 나므로 내장함수의 모든 기능을 숙지하고 내장함수를 많이 사용하는것이 좋다.
+--테이블의 JOIN 으로 가능한 것을 함수로 만들어 사용하지 말자.
+--주로 SELECT 절에 사용을 하고 WHERE 절에 사용하는것을 자제하자.
+
+--4.2. 오라클 내장 함수
+--4.2.1. 숫자형 함수
+--[PAGE307][ABS 함수 사용 예] ABS 함수는 절대값을 뽑아 내는 함수이다.
+SELECT ABS(-27)
+FROM DUAL;
+
+--[PAGE307][SIGN 함수 사용 예] SIGN 함수는 양수는 1 음수는 -1 0은 0으로 리턴한다.
+SELECT SIGN(-10), SIGN(44), SIGN(0)
+FROM DUAL;
+
+--[PAGE308][ROUND 함수 사용 예] ROUND 함수는 숫자를 지정한 자리에서 반올림 처리하는 함수이다.
+SELECT ROUND(125.198,2)
+FROM DUAL;
+
+--[PAGE308][TRUNC 함수 사용 예] TRUNC 함수는 숫자를 지정한 자리에서 절삭 처리하는 함수이다.
+SELECT TRUNC(125.198,2)
+FROM DUAL;
+
+--[PAGE308][MOD 함수 사용 예] MOD 함수는 좌측에 있는 값을 우측에 있는 값으로 나눈 나머지를 반환하는 함수이다.
+SELECT MOD(15,4)
+FROM DUAL;
+
+--[PAGE308][POWER 함수 사용 예] POWER 함수는 거듭제곱을 구하는 함수이다.
+SELECT POWER(4,2)
+FROM DUAL;
+
+--[PAGE308][SQRT 함수 사용 예] SQRT 함수는 제곱근을 구하는 함수이다.
+SELECT SQRT(9)
+FROM DUAL;
+
+--[PAGE309][CHR 함수 사용 예] CHR 함수는 ASCII 코드 값에 해당하는 문자를 확인하는 함수이다.
+SELECT CHR(88)
+FROM DUAL;
+
+--[PAGE309][TO_NUMBER 함수 사용 예] TO_NUMBER 함수는 문자열로 입력된 숫자를 숫자 타입으로 변환한다.
+SELECT TO_NUMBER('508')
+FROM DUAL;
+
+--4.2.2. 문자형 함수
+--[PAGE309][LOWER 함수 사용 예] LOWER 함수는 대소문자가 혼합되어 있거나 대문자인 문자열을 소문자로 변환한다.
+SELECT LOWER('KING')
+FROM DUAL;
+
+--[PAGE309][CONCAT 함수 사용 예] CONCAT 함수는 두 문자열을 연결하여 결과를 반환하는 함수로 CONCAT 대신에 '||'표시로도 대체할 수 있다.
+SELECT CONCAT('KO','REA')
+FROM DUAL;
+
+--[PAGE310][LTRIM 함수 사용 예] LTRIM 함수는 넘어온 파라미터 값 CHAR 에서 SET의 의 값을 왼쪽에서 제거한 값을 반환하는 함수이다.
+SELECT LTRIM('##2013년','#')
+FROM DUAL;
+
+--[PAGE310][RTRIM 함수 사용 예] RTRIM 함수는 넘어온 파라미터 값 CHAR 에서 SET의 의 값을 오른쪽에서 제거한 값을 반환하는 함수이다.
+SELECT RTRIM('##2013년','년')
+FROM DUAL;
+
+--[PAGE310][INITCAP 함수 사용 예] INITCAP 함수는 첫 문자를 대문자로 바꾸고 나머지는 소문자로 변환하는 함수이다.
+SELECT INITCAP('KOREA') AS NATION
+FROM DUAL;
+
+--[PAGE310][SUBSTR 함수 사용 예] SUBSTR 함수는 CHAR에서 POSITION 위치부터 LENGTH 길이까지 문자열을 잘라내서 반환하는 함수이다.
+SELECT SUBSTR('KOREA',1,3) AS NATION
+FROM DUAL;
+
+--[PAGE311][LPAD 함수 사용 예] LPAD 함수는 가운데 길이만큼 왼쪽으로 늘려서 반환하는 함수이다.
+SELECT LPAD('KOREA',7,$)
+FROM DUAL;
+
+--[PAGE311][RPAD 함수 사용 예] RPAD 함수는 가운데 길이만큼 오른쪽으로 늘려서 반환하는 함수이다.
+SELECT RPAD('KOREA',7,$)
+FROM DUAL;
+
+--[PAGE311][REPLACE 함수 사용 예] REPLACE 함수는 입력한 문자열을 검색하여 변환 하여 반환해주는 함수이다.
+SELECT REPLACE('KOREA','A','AN')
+FROM DUAL;
+
+--[PAGE311][ASCII 함수 사용 예] ASCII 함수는 입력한 CHAR를 아스키 코드값으로 변환하는 함수이다.
+SELECT ASCII('K')
+FROM DUAL;
+
+--[PAGE312][LENGTH 함수 사용 예] LENGTH 함수는 입력한 CHAR의 문자열 길이를 반환하는 함수이다.
+SELECT LENGTH('DRAGON')
+FROM DUAL;
+
+--[PAGE312][TO_CHAR 함수 사용 예] TO_CHAR 함수는 숫자나 문자값을 지정한 형식의 VARCHAR2문자열로 변환하는 함수이다.
+SELECT TO_CHAR(SYSDATE,'YY-MM-DD-DY') AS DAY
+FROM DUAL;
+
+--[PAGE312][숫자 타입의 데이터 형 변환] 숫자 타입의 데이터를 문자 데이터로 변환할 때 사용된다.
+SELECT TO_CHAR(SALARY,'$99,999')
+FROM DUAL;
+
+--[PAGE312][INSTR 함수 사용 예] INSTR FULL CHAR에서 찾고자 하는 CHAR의 위치를 찾아내 주는 함수이다.
+SELECT INSTR('ABCDABBBCD','B','3','2') AS SEARCH_B
+FROM DUAL;
+
+--4.2.3. 날짜형 함수
+--[PAGE314][SYSDATE 사용 예] SYSDATE 파라미터값이 없고 현재 날짜와 시간을 반환하는 함수이다.
+SELECT SYSDATE
+FROM DUAL;
+
+--[PAGE314][LAST_DAY 함수 사용 예] LAST_DAY 해당하는 월의 마지막 날짜를 반환하는 함수이다.
+SELECT LAST_DAY(TO_DATE('20130214','YYYYMMDD'))
+FROM DUAL;
+
+--[PAGE314][MONTHS_BETWEEN 함수 사용 예] MONTHS_BETWEEN DATE1과 DATE2 사이의 달수를 반환하는 함수이다.
+SELECT MONTHS_BETWEEN(TO_DATE('20130201','YYYYMMDD')
+                      ,TO_DATE('20130101','YYYYMMDD')) MONTH
+FROM DUAL;
+
+--[PAGE315][TO_DATE 함수 사용 예] TO_DATE 문자 타입의 날짜 형식을 표현식에 따라 결과값을 반환하는 함수이다.
+SELECT TO_DATE('20130214','YYYYMMDD')
+FROM DUAL;
+
+--[PAGE315][ADD_MONTH 함수 사용 예] ADD_MONTH 임의의 날짜에 지정한 개월수를 더해서 결과값을 반환하는 함수이다.
+SELECT ADD_MONTH(TO_DATE('20130214','YYYYMMDD'),3)
+FROM DUAL;
+
+--[PAGE315][NEXT_DAY 함수 사용 예] NEXT_DAY 임의의 날짜에 지정한 개월수를 더해서 결과값을 반환하는 함수이다.
+SELECT NEXT_DAY(TO_DATE('20130214','YYYYMMDD'),3)
+FROM DUAL;
+
+--4.2.4. 그 외 함수
+--[PAGE316][NVL 함수 사용 예] NVL 컬럼에 값이 담겨져 있으면 담겨있는 값을 사용하고 NULL이면 대체값을 사용한다.
+SELECT ROWNUM, T1.*
+FROM (
+      SELECT SABUN, ENG_NAME, ZIP, NVL(ZIP,'UNKNOWN') AS ZIPCODE
+      FROM INSA
+      WHERE JOIN_GBN_CODE = 'RGL'
+      ) T1
+WHERE ROWNUM <= 10;
+
+--[PAGE317][DECODE 함수 사용 예] DECODE 함수는 컬럼값에 따라 원하는 값을 선택적으로 사용할 수 있다.
+SELECT ROWNUM, T1.*
+FROM (
+      SELECT SABUN, ENG_NAME, JOIN_GBN_CODE
+             ,DECODE(JOIN_GBN_CODE,'RGL','정직원','CMP','업체직원','CNT','계약직원','프리랜서') AS "직원형태"
+      FROM INSA
+      WHERE JOIN_GBN_CODE = 'RGL'
+      ) T1
+WHERE ROWNUM <= 10;
+
+--[PAGE318][CASE 함수 사용 예] CASE 함수는 자바의 SWITCH문이나 IF~ELSE 문과 비슷한 표현 방법이다.
+SELECT ROWNUM, T1.*
+FROM (
+      SELECT SABUN, ENG_NAME, SEX
+             ,CASE SEX WHEN 'M' THEN '남'
+                      WHEN 'F' THEN '여'
+                      ELSE '모름'
+             END AS 성별
+      FROM INSA
+      )T1
+WHERE ROWNUM <= 7;
