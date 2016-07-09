@@ -614,3 +614,67 @@ FROM (
       FROM INSA
       )T1
 WHERE ROWNUM <= 7;
+
+--5. 기타 Object
+--5.1. VIEW
+--[PAGE320][VIEW 생성 예]
+CREATE VIEW V_INSA
+      AS SELECT SABUN,NAME,ENG_NAME,CMP_REG_NO,JOIN_GBN_CODE
+      FROM INSA
+      WHERE JOIN_GBN_CODE = 'RGL';
+
+SELECT SABUN,NAME,ENG_NAME,CMP_REG_NO,JOIN_GBN_CODE
+FROM V_INSA;
+
+--[PAGE321][두개 이상 테이블로 VIEW 생성 예제]
+CREATE VIEW CP_INSA
+AS 
+SELECT I.SABUN, I.ENG_NAME, C.CMP_NAME, C.CMP_ZIP ZIPCODE, C.CMP_ADDR1 ADDR
+FROM INSA I, INSA_COMPANY C
+WHERE I.CMP_REG_NO = C.CMP_REG_NO(+);
+
+SELECT * FROM CP_INSA;
+
+--[PAGE322][기존 생성 VIEW 확인]
+SELECT * FROM USER_VIEWS;
+
+--[PAGE322][V_INSA VIEW를 이용한 INSERT]
+INSERT INTO V_INSA(SABUN,NAME,ENG_NAME,JOIN_GBN_CODE)
+VALUES('2013022803','박준형','JUNE','RGL');
+
+--[PAGE323][V_INSA VIEW를 이용한 UPDATE]
+UPDATE V_INSA SET
+CMP_REG_NO = '2222222206'
+WHERE SABUN = '2013022803';
+
+--[PAGE323][V_INSA VIEW를 이용한 DELETE]
+DELETE CP_INSA
+WHERE SABUN = '2012010124';
+
+--[PAGE324][VIEW 삭제]
+DROP VIEW V_INSA;
+
+--5.1.1. VIEW 사용시 주의사항
+--조회시 복잡하게 추출해야 될 항목들을 VIEW로 만들어 사용자에게 편의성을 제공할 필요가 있을 시 사용한다.
+--사용자는 조회하지 말아야 할 테이블이나 컬럼 등이 있을 때 VIEW로 따로 만들어서 만들어진 VIEW에 권한을 주어 조회할 수 있도록 할 때 사용한다.
+--사용자들이 튜닝 하기 어려운 SQL 일때 미리 만들어서 제공한다.
+--VIEW는 튜닝을 하였어도 원본 SQL과 합쳐지면서 PLAN을 새로 만들기 때문에 VIEW 생성 시 VIEW 문장이 다른 SQL과 결합되더라도
+--수행계획이 바뀌지 않게 힌트나 GROUP BY등을 넣어 주어서 최대한 PLAN의 변동을 막을 수 있도록 생성하여 제공해야 된다.
+
+--5.2. DATA DICTIONARY VIEW
+--DICTIONARY VIEW에 따른 분류
+--USER_ 사용자가 소유하고 있는 OBJECT와 관련된 모든 정보
+--ALL_ 사용자가 접근 가능하게 허락된 OBJECT와 관련된 모든 정보
+--DBA_ DBA권한을 가지고 있는 사용자가 접근할 수 있는 모든 정보
+--V$_ 서버의 성능, 시스템 관련정보,메모리,락 등의 정보
+
+--[PAGE327][DICTIONARY VIEW를 이용한 LOCK의 조회]
+SELECT A.SID, A.SERIAL#
+FROM V$SESSION A, V$LOCK B, DBA_OBJECTS C
+WHERE A.SID = B.SID
+AND B.ID1 = C.OBJECT_ID
+AND B.TYPE = 'TM'
+AND C.OBJECT_NAME = 'CMM_CODE_DETAIL';
+
+--위의 SQL로 테이블 락을 조회하고 락이 발생된 세션을 다음 명령으로 삭제한다.
+ALTER SYSTEM KILL SESSION 'SID번호,SERIAL#';
