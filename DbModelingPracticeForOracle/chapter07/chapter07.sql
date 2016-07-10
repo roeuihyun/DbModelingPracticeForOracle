@@ -258,7 +258,7 @@ DROP PROCEDURE 프로시저명;
 
 --[PAGE291][트리거의 기본 형식]
 CREATE TRIGGER 트리거명
-BEFORE | AFTER INSTERT | DELETE | UPDATE (OF 컬럼...N)
+BEFORE | AFTER INSERT | DELETE | UPDATE (OF 컬럼...N)
 ON 테이블명
 FOR EACH ROW
 WHEN :OLD OR :NEW.COLUMN..
@@ -678,3 +678,211 @@ AND C.OBJECT_NAME = 'CMM_CODE_DETAIL';
 
 --위의 SQL로 테이블 락을 조회하고 락이 발생된 세션을 다음 명령으로 삭제한다.
 ALTER SYSTEM KILL SESSION 'SID번호,SERIAL#';
+
+--5.3. SYNONYM
+--오라클 객체(테이블,뷰,시퀀스,프로시저)에 대한 가명이다. 별명 ALIAS 라고 봐도 된다.
+--[PAGE328][SYNONYM 생성 기본형식]
+CREATE [OR REPLACE] SYNONYM SYNONYM_NAME
+FOR OBJECT_NAME;
+--CREATE SYNONYM으로 SYNONYM을 생성한다.
+--SYNONYM_NAME에 생성할 이름을 명시한다.
+--FOR OBJECT_NAME에는 대상 OBJECT_NAME을 명시한다.
+--[PAGE328][SYNONYM 생성 예]
+CREATE PUBLIC SYNONYM SY_INSA
+FOR INSA.V_INSA
+DESC SY_INSA;
+
+--5.4. CURSOR
+--CURSUR는 SQL문을 실행 결과를 담고 있는 PL/SQL의 RESULT SET 이다. 자바나 C 언어와 같은 프로그램을 다뤘던 독자라면
+--HASHMAP과 같은 의미로 생각하면 된다.
+--[PAGE329][CURSOR 생성 기본 형식]
+DECLARE
+CURSOR 커서명 IS
+SQL문장
+OPEN 커서명;
+FETCH 커서명 INTO 변수;
+CLOSE 커서명;
+--DECLARE CURSOR 커서명 IS : 커서 이름을 만들고 만들어진 커서명은 MAP 에서 KEY 값을 의미한다.
+--SQL 문장 : 커서가 실행할 SQL문을 정의한다.
+--OPEN 커서명
+--FETCH 커서명 INTO 변수 : SQL문의 결과를 ROW 단위로 CURSOR에 담는다.
+--CLOSE 커서명
+
+--[PAGE330][M_SAL CURSOR 생성]
+DECLARE
+  CURSOR M_SAL IS
+    SELECT SABUN, ENG_NAME, SALARY, JOIN_GBN_CODE
+    FROM INSA
+    WHERE (SALARY,JOIN_GBN_CODE) IN (SELECT MAX(SALARY) M_SAL, JOIN_GBN_CODE
+                                    FROM INSA
+                                    GROUP BY JOIN_GBN_CODE);
+    V_SAB INSA.SABUN%TYPE;
+    V_ENG INSA.ENG_NAME%TYPE;
+    V_SAL INSA.SALARY%TYPE;
+    V_GBN INSA.JOIN_GBN_CODE%TYPE;
+
+    BEGIN
+    OPEN M_SAL;
+    LOOP
+    FETCH M_SAL INTO V_SAB, V_ENG, V_SAL, V_GBN;
+    EXIT WHEN M_SAL%NOTFOUND;
+    DBMS_OUTPUT.PUT_LINE('---------------------------------------------------');
+    DBMS_OUTPUT.PUT_LINE('SABUN:'||V_SAB||' NAME:'||V_ENG||' SALARY:'||V_SAL||' GBN:'||V_GBN);
+    END LOOP;
+    DBMS_OUTPUT.PUT_LINE('---------------------------------------------------');
+    CLOSE M_SAL;
+    END;
+
+--5.5. DBLINK
+--DB2에서 사용하는 페더레이트처럼 ORACLE에서 다른 DB에 접근하기 위해 사용하는 기술로써
+--같은 서버의 다른 DB 또는 다른서버의 DB에 접근할 수 있다.
+--DBLINK를 사용하기 위해서는 컴퓨터 통신망에 연결되어 있어야 원격지 DB에 접근할 수 있다.
+--DBLINK를 사용하기 위해서는 DBA 권한을 가지고 있어야 한다.
+--DBLINK를 생성 또는 삭제를 하려면 DBA로부터 생성과 삭제에 대한 권한을 받아야만 한다.
+
+--[PAGE332][DBLINK 생성 권한 부여]
+GRANT CREATE PUBLIC DATABASE LINK, DROP PUBLIC DATABASE LINK TO <USER>;
+
+--[PAGE332][TNSNAMES.ORA 파일에 원격 DB 접속 정보 추가]
+XE =
+    (DESCRIPTION =
+      ( ADDRESS = (PROTOCOL = TCP)(HOST = 000.000.0.00)(PROT = 1521) )
+      ( CONNECT_DATA = 
+        (SERVER = DEDICATED)
+        (SERVICE_NAME = XE)
+      )
+    )
+
+--[PAGE332][DBLINK 생성 기본 형식]
+CREATE [PUBLIC] DATABASE LINK <LINK NAME>
+CONNECT TO <연결하고자 하는 USER>
+IDENTIFIED BY <연결하고자 하는 USER PASSWORD>
+USING <원격DB SID>;
+
+--[PAGE333][DBLINK 생성]
+CONNECT SCOTT/TRIGGER
+CREATE PUBLIC DATABASE LINK SEONGPD
+CONNECT TO **** IDENTIFIED BY ***********
+USING 'XE';
+
+--DBLINK시 LOCAL 언어 설정이 다르면 데이터가 손상되는 현상이 발생하므로 NLS_CHARACTER_SET 설정이 동일한지 확인해야 한다.
+--[PAGE333][NLS_CHARACTER 체크]
+SELECT *
+FROM NLS_DATABASE_PARAMETERS
+WHERE PARAMETER = 'NLS_CHARACTERSET';
+
+--[PAGE333][DBLINK 사용형식]
+SELECT * FROM <원격 DB 테이블명>@<DBLINK 이름>;
+
+--[PAGE334][DBLINK 사용 예]
+INSERT INTO INSA@SEONGPD(SABUN,ENG_NAME) VALUES ('2013052901','KIM');
+SELECT SABUN,ENG_NAME FROM INSA@SEONGPD WHERE SABUN = '2013052901';
+UPDATE INSA@SEONGPD SET ENG_NAME = 'PARK' WHERE SABUN = '2013052901';
+DELETE INSA@SEONGPD WHERE SABUN = '2013052901';
+
+--[PAGE334][SYNONYM을 이용한 DBLINK 사용]
+CREATE SYNONYM SEONG FOR INSA@SEONGPD;
+
+--[PAGE334][DBLINK 삭제]
+DROP DATABASE LINK <DB LINK 이름>;
+
+--5.6. JOB
+--DB에서 생성한 SQL/PLUS 프로시저 함수들에 대해 사용자가 지정한 시간에 자동으로 수행되는 배치 작업을 하기 위해
+--JOB을 사용한다. 다시 말해 JOB QUEUE를 이용해 프로시저의 동작 시간을 컨으롤 할 수 있다.
+
+--[PAGE335][JOB 생성 기본 형식]
+DECLARE
+X NUMBER;
+BEGIN
+SYS.DBMS_JOB.SUBMIT
+(JOB = 실행할 JOB NUMBER
+  WHAT = 실행할 PL/SQL PROCEDURE명
+  NEXT_DAY = JOB 시작일자 지정, DATA TYPE으로 EVALUATE 되는 문자열 입력(SYSDATE)
+  INTERVAL = JOB을 수행한 후, 다음 실행 까지의 TERM 지정
+  NO_PARSE = TRUE 일 경우 SUBMIT때 JOB을 PARSINGG 하지 않는다.
+);
+END;
+/
+
+--[PAGE335][JOB 생성 과정]
+CREATE TABLE JOB_TAB(
+  TEST_JOB VARCHAR2(25)
+);
+
+--PROCEDURE 생성
+CREATE OR REPLACE PROCEDURE P_JOB
+IS
+BEGIN
+INSERT INTO JOB_TAB(TEST_JOB) VALUES (TO_CHAR(SYSDATE,'YYYY/MM/DD HH24:MI:SS'));
+COMMIT;
+END P_JOB;
+
+--JOB 생성
+DECLARE
+JOBNO NUMBER;
+BEGIN
+DBMS_JOB.SUBMIT(JOBNO,'P_JOB',SYSDATE,'SYSDATE + 1/24/6');
+END;
+
+--[PAGE336][JOB_TAB 테이블 조회]
+SELECT * FROM JOB_TAB;
+
+--5.7. MATERIALZED VIEW
+--VIEW는 논리적인 테이블을 만들어 SQL 문장을 통해 데이터를 관리 하지만 VIEW에는 직접적인 데이터가 저장되지 않는다.
+--MATERIALZED VIEW는 일종의 VIEW이지만 사용하기 위한 목적은 VIEW와 차이가 있다. MATERIALZED VIEW는 물리적인 테이블이다.
+--MATERIALZED VIEW를 생성하기 위햇는 QUERY REWRITE 권한과 CREATE MATERIALZED VIEW권한이 있어야 하는 SYSDBA 유저인
+--SYS에게 권한을 부여를 받아야 생성할 수 있다.
+GRANT QUERY REWIRTE TO 유저명;
+GRANT CREATE MATERIALZED VIEW TO 유저명;
+
+--5.7.1. MATERIALZED VIEW 생성
+CREATE MATERIALZED VIEW VIEW_명
+BUILD IMMEDIATE [DEFERRED] -- MATERIALZED VIEW 생성 후 데이터 생성 시점 지정
+REFRESH COMPLETE [FORCE,FAST,NEVER] -- REFRESH 방법 지정
+ON COMMIT [DEMEND] -- REFRESH 발생 시점 지정
+[START WITH -시작시간- NEXT -다음REFRESH시간 간격-] 
+ENABLE[DISABLE] QUERY REWRITE -- 옵티마이저의 쿼리 재작성 허용 여부 지정
+AS 
+QUERY
+
+--BUILD IMMEDIATE : MATERIALZED VIEW 생성과 동시에 관련 데이터를 생성하도록 지정
+--DEFERRED : MATERIALZED VIEW를 생성하고 데이터는 나중에 생성하도록 지정
+--REFRESH ON : MATERIALZED VIEW의 데이터를 언제 REFRESH 할 것인지 결정하는 방법
+--COMMIT : 마스터 테이블에 DML이 발생 후 COMMIT이 실행되면 그 결과를 바로 MATERIALZED VIEW에 반영
+--DEMAND : 사용자가 DBMS_MATERIALZED VIEW 패키지를 실행한 경우 반영
+--FAST : MATERIALZED VIEW의 마스터 테이블에 DML이 발생되면 변경된 DML만 MATERIALZED VIEW에 반영
+--COMPLETE : MATERIALZED VIEW와 마스터 테이블을 비교하면서 데이터 전체가 REFRESH
+--FORCE : FAST REFRESH 적용이 가능한지 점검 후에 가능하다면 적용하고 아니면 COMPLETE REFRESH를 적용
+--NEVER : MATERIALZED VIEW의 REFRESH를 적용하지 않기 위해서 사용
+--QUERY REWRITE : 사용자가 작성한 SQL문을 옵티마이저는 내부적으로 더 나은 방법을 모색하여 사용자의 쿼리보다 좋은 방법을
+--찾게 된다면 옵티마이저는 스스로 SQL문을 재작성 하게 되는데 이렇게 옵티마이저가 쿼리를 다시 작성하는 방법의 허용 여부
+
+--[PAGE338][MAX_SAL_LEAD MATERIALZED VIEW 생성]
+CREATE MATERIALZED VIEW NAX_SAL_LEAD
+BUILD IMMEDIATE
+REFRESH FORCE
+START WITH SYSDATE
+NEXT SYSDATE + (1/24/1)
+ENABLE QUERY REWRITE
+AS
+SELECT SABUN, ENG_NAME, NVL(JOIN_DAY,SUBSTR(SABUN,1,8)) AS JOIN_DAY, SALARY, JOIN_GBN_CODE
+FROM INSA
+WHERE (JOIN_GBN_CODE,SALARY) IN (SELECT JOIN_GBN_CODE, MAX(SALARY)
+                                FROM INSA
+                                GROUP BY JOIN_GBN_CODE);
+
+-- 생성한 MATERIALZED VIEW의 결과를 일반 SQL문으로 데이터를 조회
+--[PAGE339][일반 SQL을 통한 데이터 조회]
+SELECT SABUN, ENG_NAME, NVL(JOIN_DAY,SUBSTR(SABUN,1,8)) AS JOIN_DAY, SALARY, JOIN_GBN_CODE
+FROM INSA
+WHERE (JOIN_GBN_CODE,SALARY) IN (SELECT JOIN_GBN_CODE, MAX(SALARY)
+                                FROM INSA
+                                GROUP BY JOIN_GBN_CODE)
+ORDER BY SALARY DESC;
+
+--[PAGE339][MAX_SAL_LEAD VIEW 통한 데이터 조회]
+SELECT * FROM MAX_SAL_LEAD;
+
+--MATERIALZED VIEW를 사용하여 조회하는것과 일반 SQL을 사용하여 조회하는 것은 옵티마이저의 실행 계획에 큰 차이가 있다.
+--[PAGE341][INSA 테이블 수정 후 MATERIALZED VIEW 데이터 확인]
+UPDATE INSA SET SALARY = 6000 WHERE SABUN = '2013010122';
