@@ -100,3 +100,68 @@ AND JOIN_GBN_CODE = 'RGL';
 --인덱스가 적용된 컬럼을 가공하게 되면 OPTIMIZER는 인덱스를 사용하지 못하게 된다.
 --인덱스 컬럼의 가공이 필요할 때인덱스를 만들 때부터 함수를 적용시킬 수 있는데 이렇게 만들어진 INDEX를
 --함수사용 INDEX라고 한다.
+
+--[PAGE356][함수 사용 INDEX 생성 전 확인 SQL]
+SELECT /*+ INDEX_DESC(INSA INSA_SAL)*/
+		SABUN, ENG_NAME, JOIN_GBN_CODE, SALARY
+FROM INSA
+WHERE TO_CHAR(SALARY) LIKE '30%'
+AND JOIN_GBN_CODE = 'RGL';
+
+--[PAGE356][함수 사용 INDEX 생성]
+CREATE INDEX INSA_SAL_F
+ON INSA(TO_CHAR(SALARY));
+
+--[PAGE356][함수 사용 INDEX 생성 전 확인 SQL]
+SELECT /*+ INDEX_DESC(INSA INSA_SAL)*/
+		SABUN, ENG_NAME, JOIN_GBN_CODE, SALARY
+FROM INSA
+WHERE TO_CHAR(SALARY) LIKE '30%'
+AND JOIN_GBN_CODE = 'RGL';
+
+--실행 계획이 달라진다. TABLE FULL SCAN -> INDEX ROWID 사용으로 변경
+
+--3. 물리적 구조에 따른 분류
+--3.1. B*TREE INDEX
+--3.1.1. 설명
+--명칭 : 인덱스를 생성할 때 일반적으로 가장 많이 사용하는 인덱스이며 binary search index의 약자이고 물리적 구조가 좌우 대칭 구조를 이루고 있어 Balance-tree INDEX라고도 한다.
+--구조 : 나무구조처럼 Rock Block, Branch Block, Leaf Block으로 나뉘어져 찾아갈 수 있는 구조로 생성되며 Leaf Block에서는 서로의 정보를 연결하는 Double Linked List 정보를 가지고 있다.
+--[PAGE358][기본형식]
+CREATE [UNIQUE] IDNEX [SCHEMA.]인덱스명
+ON [SCHEMA.]테이블명(컬럼[ASC|DESC][,컬럼[ASC|DESC]...])
+[TABLESPACE 테이블 스페이스명]
+[PCTREE 값]
+[INITRANS 숫자]
+[MAXTRANS 숫자]
+[STORAGE 절]
+[LOGGIN|NOLOGGING]
+[NOSORT]
+[REVERSE];
+--찾아가는 Leaf Block의 깊이가 동일하여 검색시간이 동일하다.
+--Leaf Block에는 물리적으로 테이블 레코드의 ROWID를 가지고 레코드를 직접 엑세스 할 수 있다.
+--NULL값의 저보는 인덱스 정보를 만들지 앟는다. 결합인덱스일 때는 구성 컬럼이 모두 NULL값일 때 인덱스 정보로 저장하지 않는다.
+--Cardinality(집합원의 개수)가 다시 말해 분포도가 좋은 컬럼에 인덱스를 생성할 때 유리하다.
+
+--3.1.3. B*TREE INDEX의 구조 설명
+--B*TREE 인덱스는 위에서 보는 바와 같이 나무의 가지같은 구조로 Root, Brach, Leaf Block으로 구성되어 있으며 마지막 Leaf Block에는 인덱스 컬럼의 값과 실제 물리적 테이블을 찾아갈 수 있는 ROWID로 구성이 되어있다.
+--[PAGE360][ROWID의 구성]
+--DATABASE SEGMENT 정보 + TABLE SPACE의 DATA FILE정보 + DATA BLOCK 정보 + ROW NUMBER
+
+--[PAGE360][구조설명]
+--(1)Root Block 
+--블록 헤드와 실제 인덱스 값의 범위를 알 수 있는 정보와 Branch Block을 찾아갈 수 있는 블럭 정보를 가지고 있다.
+--인덱스 검색 시 제일 먼저 검색하며 인덱스 대상 상수값을 가지고 블럭에 있는 인덱스 값의 범위와 비교하여 해당되는 Brach Block의 물리적 주소값을 찾는다.
+--레코드가 없는 테이블에 인덱스를 생성하면 값이 없는 Root Block이 먼저 생성된다.
+
+--(2)Branch Block 
+--블록 헤드와 실제 인덱스 값의 범위를 알 수 있는 정보와 Leaf Block을 찾아갈 수 있는 블록 정보를 가지고 있다.
+--인덱스 검색 시 Root Block을 경유하여 검색되며 Branch Block을 찾은 후 인덱스 대상 상수값을 가지고 블록에 있는 인덱스 값의 범위와 비교하여 다음 블록의 물리적 주소를 가지고 다음 블록을 찾아간다.
+--인덱스 검색 시 Leaf Block을 찾을 때까지 위의 과정을 반복하여 수행한다.
+
+--(3)Leaf Block
+--블록 헤드와 실제 인덱스 값을 가지고 있으며 테이블 레코드를 찾아 갈수 있는 ROWID값을 가지고 있다.
+--인덱스 검색 시 Leaf Block에 도달을 하면 블록을 순차적으로 검색하여 인덱스 대상 상수값과 같으면 찾아갈 ROWID값을 가지고 직접 해당 레코드를 검색하게 된다.
+
+--(4)Double Linked list
+--Leaf Block에는 이전 블록 번호와 다음 블록 번호를 가지고 있어 순차적으로 또는 역방향으로도 검색할 수 있도록 되어 있다.
+--Leaf Block은 항상 인덱스 키값으로 정렬되어 있기 때문에 Link 정보를 가지고 블록들을 읽으면서 필요한 데이터를 검색할 수 있다.
